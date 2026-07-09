@@ -1,0 +1,67 @@
+# Known web scanner / automated tool fingerprints
+# One pattern per line (extended regex, matched against Apache access log lines)
+# Blank lines and lines starting with # are ignored
+
+# Acunetix
+acunetix
+bxss\.me
+xss\.ht
+acux\.
+
+# Invicti / NetSparker
+netsparker
+invicti
+
+# Burp Suite
+burpsuite
+burp\.collaborator
+
+# OWASP ZAP
+OWASP_ZAP
+ZAP/
+
+# Nikto
+Nikto/
+nikto
+
+# sqlmap
+sqlmap/
+sql\.map
+
+# Nmap NSE
+Nmap Scripting Engine
+nmap
+
+# Masscan
+masscan
+
+# Nuclei
+nuclei/
+projectdiscovery
+
+# Shodan / Censys / BinaryEdge crawlers
+shodan\.io
+censys\.io
+binaryedge\.io
+shadowserver\.org
+
+# Generic scanner patterns
+\.\./\.\./\.\./
+%2e%2e%2f
+%252e%252e
+\/etc\/passwd
+\/etc\/shadow
+\/proc\/self\/environ
+cmd=whoami
+cmd=id
+eval\(base64_decode
+<script>alert
+onerror=alert
+onload=alert
+/phpinfo\.php
+\?XDEBUG_SESSION_START
+/.git/HEAD
+/.env
+/wp-config\.php
+/config\.php\.bak
+/\.DS_Store

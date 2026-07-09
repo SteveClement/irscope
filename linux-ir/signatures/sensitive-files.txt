@@ -1,0 +1,61 @@
+# Sensitive file patterns — searched system-wide (find -name)
+# One glob pattern per line
+
+# SSH private keys
+id_rsa
+id_dsa
+id_ecdsa
+id_ed25519
+*.pem
+*.p12
+*.pfx
+*.key
+
+# Certificates
+*.crt
+*.cer
+
+# Web app config files
+config.php.bak
+wp-config.php
+wp-config.php.bak
+settings.php
+settings.php.bak
+.env
+.env.bak
+.env.local
+.env.production
+database.yml
+secrets.yml
+credentials.yml
+application.yml
+
+# Database dumps
+*.sql
+*.sql.gz
+*.dump
+*.db
+
+# Archive files in web dirs
+*.tar
+*.tar.gz
+*.tar.bz2
+*.zip
+*.7z
+
+# Cloud / API credentials
+*.aws
+credentials
+.netrc
+.htpasswd
+
+# Git internals (exposed in web root)
+.git
+COMMIT_EDITMSG
+
+# History files
+.bash_history
+.zsh_history
+.mysql_history
+.psql_history
+.python_history

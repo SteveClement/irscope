@@ -1,0 +1,50 @@
+# Webshell detection signatures
+# Matched against file content in web root (grep -E patterns)
+# One pattern per line
+
+# Classic PHP webshell functions
+eval\s*\(\s*base64_decode
+eval\s*\(\s*gzinflate
+eval\s*\(\s*str_rot13
+eval\s*\(\s*gzuncompress
+assert\s*\(\s*\$_
+preg_replace\s*\(.*\/e[^,]
+preg_replace\s*\(.*\/e\s*[,)]
+call_user_func\s*\(\s*\$_
+array_map\s*\(\s*\$_[A-Z]
+usort\s*\(\s*\$_[A-Z]
+
+# $_REQUEST/$_POST/$_GET → eval/exec/system
+\$_(REQUEST|POST|GET|COOKIE)\s*\[.*\]\s*\)\s*;
+system\s*\(\s*\$_(REQUEST|POST|GET|COOKIE)
+exec\s*\(\s*\$_(REQUEST|POST|GET|COOKIE)
+passthru\s*\(\s*\$_(REQUEST|POST|GET|COOKIE)
+shell_exec\s*\(\s*\$_(REQUEST|POST|GET|COOKIE)
+popen\s*\(\s*\$_(REQUEST|POST|GET|COOKIE)
+
+# /bin/sh / cmd execution via PHP
+proc_open.*\/bin\/(sh|bash)
+popen.*\/bin\/(sh|bash)
+
+# PHP obfuscation markers
+chr\([0-9]+\)\.chr\([0-9]+\)\.chr\([0-9]+\)
+\\x[0-9a-f]{2}\\x[0-9a-f]{2}\\x[0-9a-f]{2}
+
+# JSP webshells
+Runtime\.getRuntime\(\)\.exec
+ProcessBuilder.*start\(\)
+
+# Known webshell strings
+c99shell
+r57shell
+FilesMan
+WSO Shell
+weevely
+b374k
+p0wny
+laudanum
+
+# Reverse shell one-liners (PHP)
+fsockopen.*\/bin\/sh
+bash\s+-i\s+>&\s+\/dev\/tcp
+python.*pty.*spawn.*\/bin\/bash

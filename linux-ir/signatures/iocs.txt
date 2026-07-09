@@ -1,0 +1,24 @@
+# IOC file — IR-specific indicators of compromise
+# Format:
+#   ip:<IPv4>           — match IP in logs/connections
+#   domain:<domain>     — match domain in logs/DNS config
+#   hash:<md5|sha256>   — match file hash on disk
+#   str:<string>        — match string in processes/files
+#   <bare string>       — treated as str: IOC
+#
+# Lines starting with # and blank lines are ignored.
+# Populate this file with case-specific IOCs before running ir.sh.
+#
+# Example entries (uncomment and populate as needed):
+#
+# ip:185.218.125.19
+# ip:192.168.1.100
+#
+# domain:evil.example.com
+# domain:c2.attacker.net
+#
+# hash:d41d8cd98f00b204e9800998ecf8427e
+# hash:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+#
+# str:rev_shell
+# str:c99.php
