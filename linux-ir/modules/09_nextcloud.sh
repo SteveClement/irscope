@@ -102,21 +102,24 @@ run_module() {
 
   # ── Backup files in Nextcloud dirs ────────────────────────────────────────
   subsection "Backup / Config Files in Nextcloud Tree"
-  local bak_files
+  local bak_files bak_dirs
   bak_files=$(find "${nc_root}" -maxdepth 6 -type f \
     \( -name '*.bak' -o -name '*.backup' -o -name '*.old' -o -name '*.orig' -o -name '*.save' \) \
     2>/dev/null || true)
-  # Also check parent dir for backup copies of the installation
-  bak_files+=$(find "$(dirname "${nc_root}")" -maxdepth 3 -type d \
+  # Also check parent dir for backup copies of the entire installation (directories)
+  bak_dirs=$(find "$(dirname "${nc_root}")" -maxdepth 3 -type d \
     \( -name '*backup*' -o -name '*bak*' -o -name '*old*' \) 2>/dev/null | head -10 || true)
+  [[ -n "$bak_dirs" ]] && bak_files+=$'\n'"$bak_dirs"
 
   if [[ -n "$bak_files" ]]; then
     high "Backup/config files found in Nextcloud tree:"
     printf '%s\n' "$bak_files" | while read -r f; do
+      [[ -n "$f" ]] || continue
       local perms
       perms=$(stat -c '%a' "$f" 2>/dev/null || echo "?")
       raw "  [perms:${perms}] ${f}"
-      is_world_readable "$f" 2>/dev/null && critical "  ^ World-readable: ${f}"
+      # Only flag world-readable on regular files — 755 directories are expected
+      [[ -f "$f" ]] && is_world_readable "$f" 2>/dev/null && critical "  ^ World-readable: ${f}"
     done
   else
     info "No backup config files found in Nextcloud tree"
