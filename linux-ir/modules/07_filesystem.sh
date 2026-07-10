@@ -48,8 +48,11 @@ run_module() {
   subsection "PHP Files with Obfuscated/Encoded Content"
   local php_sus
   # --include='*.php' avoids grepping GBs of user-uploaded data; timeout caps worst-case
+  # Exclude Nextcloud core/app/vendor dirs — only custom and user-upload paths are suspicious
   php_sus=$(timeout 120 grep -rlE --include='*.php' \
     --exclude-dir='data' --exclude-dir='.git' \
+    --exclude-dir='apps' --exclude-dir='core' \
+    --exclude-dir='lib' --exclude-dir='3rdparty' --exclude-dir='vendor' \
     '(base64_decode\s*\(|eval\s*\(|assert\s*\(|gzinflate|str_rot13|preg_replace.*\/e|exec\s*\(|system\s*\(|passthru)' \
     "${SCAN_WEBROOT}" 2>/dev/null | head -30 || true)
   if [[ -n "$php_sus" ]]; then
@@ -67,6 +70,8 @@ run_module() {
       local ws_hits
       ws_hits=$(timeout 120 grep -rlE --include='*.php' \
         --exclude-dir='data' --exclude-dir='.git' \
+        --exclude-dir='apps' --exclude-dir='core' \
+        --exclude-dir='lib' --exclude-dir='3rdparty' --exclude-dir='vendor' \
         "$ws_pattern" "${SCAN_WEBROOT}" 2>/dev/null | head -20 || true)
       if [[ -n "$ws_hits" ]]; then
         critical "Webshell signatures matched:"

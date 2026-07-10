@@ -51,7 +51,8 @@ run_module() {
       while IFS= read -r unit; do
         local exec_line
         exec_line=$(grep -iE '^\s*ExecStart\s*=' "$unit" 2>/dev/null | head -3 || true)
-        if echo "$exec_line" | grep -qiE '(curl|wget|nc |ncat|/dev/tcp|base64|python.*http|bash -i)'; then
+        # Use \bnc\b to avoid substring-matching binaries like rsync
+        if echo "$exec_line" | grep -qiE '(curl|wget|\bnc\b|ncat|/dev/tcp|base64|python.*http|bash -i)'; then
           high "Suspicious ExecStart in ${unit}: ${exec_line}"
         fi
       done <<< "$custom_units"
@@ -85,11 +86,14 @@ run_module() {
     done
   done < <(awk -F: '$3>=1000 && $3!=65534{print $6}' /etc/passwd)
 
+  # Require pipe-to-shell, reverse shell, or explicit exec patterns to avoid flagging
+  # legitimate curl/wget usage (e.g. helper functions in .zshrc/.bashrc)
+  local backdoor_pattern='(bash\s+-i|/dev/tcp|\bnc\s+-[elp]|\bncat\s+-[elp]|(curl|wget)[^#]*\|\s*(bash|sh|exec)|(base64|openssl).*\|\s*(bash|sh)|python[23]?\s+-c.*socket\.connect)'
   for f in "${profile_files[@]}"; do
     [[ -f "$f" ]] || continue
-    if grep -qiE '(curl|wget|nc |ncat|/dev/tcp|base64.*decode|python.*http|bash -i)' "$f" 2>/dev/null; then
+    if grep -qiE "$backdoor_pattern" "$f" 2>/dev/null; then
       high "Suspicious content in shell profile ${f}:"
-      grep -iE '(curl|wget|nc |ncat|/dev/tcp|base64.*decode|python.*http|bash -i)' "$f" | raw_block
+      grep -iE "$backdoor_pattern" "$f" | raw_block
     fi
   done
 

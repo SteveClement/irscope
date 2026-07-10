@@ -68,8 +68,13 @@ run_module() {
 
   subsection "Open Deleted Files in /tmp"
   # Files unlinked but still held open (in-memory payloads)
+  # Filter known-good patterns: PHP ZendSem, MariaDB/MySQL anonymous tmpfiles (#NNN),
+  # Collabora Online (coolwsd/AppRun/forkit) and systemd journal files
   local open_deleted
-  open_deleted=$(lsof +L1 2>/dev/null | grep -E '/tmp|/var/tmp|/dev/shm' || true)
+  open_deleted=$(lsof +L1 2>/dev/null \
+    | grep -E '/tmp|/var/tmp|/dev/shm' \
+    | grep -vE '(\.ZendSem\.|/#[0-9]+|coolwsd|AppRun|forkit|systemd-journal)' \
+    || true)
   if [[ -n "$open_deleted" ]]; then
     high "Deleted files still held open (possible in-memory payload):"
     printf '%s\n' "$open_deleted" | raw_block
