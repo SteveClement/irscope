@@ -176,6 +176,71 @@ run_module() {
     fi
   fi
 
+  # ── Nextcloud log analysis ────────────────────────────────────────────────
+  subsection "Nextcloud Log Analysis"
+  local nc_log
+  nc_log=$(grep -oP "(?<='logfile'\s=>\s')[^']+" "$cfg" 2>/dev/null || true)
+  [[ -z "$nc_log" && -n "$data_dir" ]] && nc_log="${data_dir}/nextcloud.log"
+
+  if [[ -z "$nc_log" || ! -f "$nc_log" ]]; then
+    warn "nextcloud.log not found — check 'logfile' in config.php"
+  else
+    local log_size
+    log_size=$(du -sh "$nc_log" 2>/dev/null | cut -f1 || echo "?")
+    info "nextcloud.log: ${nc_log} (${log_size})"
+
+    # Failed logins — top offending IPs
+    local login_fails
+    login_fails=$(timeout 30 grep -i '"Login failed"' "$nc_log" 2>/dev/null \
+      | grep -oP '"remoteAddr"\s*:\s*"\K[^"]+' \
+      | sort | uniq -c | sort -rn | head -20 || true)
+    if [[ -n "$login_fails" ]]; then
+      warn "Failed login attempts — top source IPs:"
+      printf '%s\n' "$login_fails" | raw_block
+    else
+      info "No failed login events in nextcloud.log"
+    fi
+
+    # Brute-force protection triggers
+    local bf_events
+    bf_events=$(timeout 30 grep -iE 'bruteforce|throttl' "$nc_log" 2>/dev/null \
+      | tail -20 || true)
+    [[ -n "$bf_events" ]] && warn "Brute-force protection events:" \
+      && printf '%s\n' "$bf_events" | raw_block
+
+    # Admin: password resets, user create/delete, 2FA state changes
+    local admin_events
+    admin_events=$(timeout 30 grep -iE \
+      '(setPassword|password.*reset|createUser|deleteUser|two.?factor|2fa|twoFactor|disableUser|enableUser)' \
+      "$nc_log" 2>/dev/null | tail -40 || true)
+    [[ -n "$admin_events" ]] && high "Admin / auth-management events in nextcloud.log:" \
+      && printf '%s\n' "$admin_events" | raw_block
+
+    # IOC IP hits — search full log (incident may have happened weeks ago)
+    if [[ -f "${SIGNATURES_DIR}/iocs.txt" ]]; then
+      while IFS= read -r ioc_line; do
+        [[ -z "$ioc_line" || "$ioc_line" == \#* ]] && continue
+        local ioc_type ioc_val
+        ioc_type="${ioc_line%%:*}"
+        ioc_val="${ioc_line#*:}"
+        [[ "$ioc_type" != "ip" ]] && continue
+        local ioc_hits
+        ioc_hits=$(timeout 20 grep -F "$ioc_val" "$nc_log" 2>/dev/null | tail -20 || true)
+        if [[ -n "$ioc_hits" ]]; then
+          critical "IOC IP ${ioc_val} found in nextcloud.log:"
+          printf '%s\n' "$ioc_hits" | raw_block
+        fi
+      done < "${SIGNATURES_DIR}/iocs.txt"
+    fi
+
+    # Recent ERROR / FATAL entries (level 3=error, 4=fatal)
+    local log_errors
+    log_errors=$(timeout 30 grep -E '"level"\s*:\s*[34]' "$nc_log" 2>/dev/null \
+      | tail -20 || true)
+    [[ -n "$log_errors" ]] && warn "Recent ERROR/FATAL entries:" \
+      && printf '%s\n' "$log_errors" | raw_block
+  fi
+
   # ── File ownership ────────────────────────────────────────────────────────
   subsection "File Ownership"
   local nc_owner
