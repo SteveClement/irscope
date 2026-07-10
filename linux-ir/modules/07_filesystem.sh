@@ -30,18 +30,18 @@ run_module() {
   )
   local found_exposed=0
   for pat in "${exposed_patterns[@]}"; do
-    local hits
-    hits=$(find "${SCAN_WEBROOT}" -maxdepth 8 -name "$pat" -type f 2>/dev/null || true)
-    if [[ -n "$hits" ]]; then
-      high "Potentially exposed file (${pat}) in web root:"
-      printf '%s\n' "$hits" | while read -r f; do
-        local perms
-        perms=$(stat -c '%a' "$f" 2>/dev/null || echo "?")
-        raw "  [perms:${perms}] ${f}"
-        is_world_readable "$f" && critical "  ^ World-readable: ${f}"
-      done
-      found_exposed=1
-    fi
+    local found_pat=0
+    while IFS= read -r -d '' f; do
+      if [[ $found_pat -eq 0 ]]; then
+        high "Potentially exposed file (${pat}) in web root:"
+        found_pat=1
+        found_exposed=1
+      fi
+      local perms
+      perms=$(stat -c '%a' "$f" 2>/dev/null || echo "?")
+      raw "  [perms:${perms}] ${f}"
+      is_world_readable "$f" && critical "  ^ World-readable: ${f}"
+    done < <(find "${SCAN_WEBROOT}" -maxdepth 8 -name "$pat" -type f -print0 2>/dev/null)
   done
   [[ $found_exposed -eq 0 ]] && info "No backup/config files found exposed in web root"
 

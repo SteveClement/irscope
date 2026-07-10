@@ -73,7 +73,7 @@ run_module() {
   local open_deleted
   open_deleted=$(lsof +L1 2>/dev/null \
     | grep -E '/tmp|/var/tmp|/dev/shm' \
-    | grep -vE '(\.ZendSem\.|/#[0-9]+|coolwsd|AppRun|forkit|systemd-journal)' \
+    | grep -vE '(\.ZendSem\.|/#[0-9]+|coolwsd|loolwsd|AppRun|forkit|loolkit|systemd-journal)' \
     || true)
   if [[ -n "$open_deleted" ]]; then
     high "Deleted files still held open (possible in-memory payload):"

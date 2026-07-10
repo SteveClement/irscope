@@ -115,8 +115,28 @@ run_module() {
     local sshd_ver
     sshd_ver=$(sshd -V 2>&1 | head -1 || true)
     if echo "$sshd_ver" | grep -qE 'OpenSSH_(8\.[5-9]|9\.[0-7])p1'; then
-      critical "CVE-2024-6387 (regreSSHion): sshd version in vulnerable range: ${sshd_ver}"
-      raw "  Remediation: upgrade OpenSSH to >= 9.8p1"
+      # Upstream range is vulnerable — check if distro backported the fix
+      local pkg_ver fixed_ver backported=0
+      pkg_ver=$(dpkg-query -W -f='${Version}' openssh-server 2>/dev/null || true)
+      if [[ -n "$pkg_ver" ]]; then
+        local codename
+        codename=$(. /etc/os-release 2>/dev/null && echo "${VERSION_CODENAME:-}" || true)
+        case "$codename" in
+          noble)    fixed_ver='1:9.6p1-3ubuntu13.5' ;;
+          jammy)    fixed_ver='1:8.9p1-3ubuntu0.10' ;;
+          bookworm) fixed_ver='1:9.2p1-2+deb12u3' ;;
+          bullseye) fixed_ver='1:8.4p1-5+deb11u3' ;;
+        esac
+        if [[ -n "$fixed_ver" ]] && dpkg --compare-versions "$pkg_ver" ge "$fixed_ver" 2>/dev/null; then
+          backported=1
+        fi
+      fi
+      if [[ $backported -eq 0 ]]; then
+        critical "CVE-2024-6387 (regreSSHion): sshd version in vulnerable range: ${sshd_ver}"
+        raw "  Remediation: upgrade OpenSSH to >= 9.8p1 or apply distro security patch"
+      else
+        info "OpenSSH ${sshd_ver} — CVE-2024-6387 patched via distro backport (${pkg_ver})"
+      fi
     else
       info "OpenSSH not in CVE-2024-6387 vulnerable range: ${sshd_ver}"
     fi
