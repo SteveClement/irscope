@@ -55,10 +55,10 @@ report_footer() {
   {
     printf '\n---\n'
     printf '\n## Scan Complete\n\n'
-    printf '- Duration: %ds\n' "$elapsed"
-    printf '- Output: `%s`\n' "${OUTPUT_DIR}"
-    printf '- Report: `%s`\n' "${REPORT_FILE}"
-    printf '- Findings JSON: `%s`\n' "${JSON_FILE}"
+    printf -- '- Duration: %ds\n' "$elapsed"
+    printf -- '- Output: `%s`\n' "${OUTPUT_DIR}"
+    printf -- '- Report: `%s`\n' "${REPORT_FILE}"
+    printf -- '- Findings JSON: `%s`\n' "${JSON_FILE}"
   } >> "${REPORT_FILE}"
 }
 
