@@ -148,14 +148,15 @@ run_module() {
   if [[ -n "$data_dir" ]]; then
     info "Data dir: ${data_dir}"
     if [[ "${data_dir}" == "${SCAN_WEBROOT}"* ]]; then
-      critical "Data directory is inside web root — files directly accessible via HTTP"
+      if [[ -f "${data_dir}/.htaccess" ]]; then
+        # Default Nextcloud layout — .htaccess blocks direct HTTP access
+        warn "Data directory is inside web root (default layout) — protected by .htaccess"
+        raw "  Move outside web root for defence-in-depth if AllowOverride is ever disabled"
+      else
+        critical "Data directory is inside web root and has no .htaccess — user files directly accessible via HTTP"
+      fi
     else
       info "Data directory is outside web root (good)"
-    fi
-    if [[ -f "${data_dir}/.htaccess" ]]; then
-      info ".htaccess present in data dir"
-    else
-      warn "No .htaccess in data dir — Apache may serve raw user files if DirectoryIndex misconfigured"
     fi
   fi
 
