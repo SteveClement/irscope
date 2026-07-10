@@ -148,12 +148,28 @@ run_module() {
   if [[ -n "$data_dir" ]]; then
     info "Data dir: ${data_dir}"
     if [[ "${data_dir}" == "${SCAN_WEBROOT}"* ]]; then
-      if [[ -f "${data_dir}/.htaccess" ]]; then
-        # Default Nextcloud layout — .htaccess blocks direct HTTP access
-        warn "Data directory is inside web root (default layout) — protected by .htaccess"
-        raw "  Move outside web root for defence-in-depth if AllowOverride is ever disabled"
+      local htaccess="${data_dir}/.htaccess"
+      if [[ ! -f "$htaccess" ]]; then
+        critical "Data directory is inside web root with no .htaccess — user files directly accessible via HTTP"
       else
-        critical "Data directory is inside web root and has no .htaccess — user files directly accessible via HTTP"
+        # Check the .htaccess actually contains a deny directive
+        if grep -qiE '(Require\s+all\s+denied|Deny\s+from\s+all)' "$htaccess" 2>/dev/null; then
+          # Check Apache respects .htaccess (AllowOverride must not be None)
+          local override
+          override=$(grep -rh 'AllowOverride' /etc/apache2/ 2>/dev/null \
+            | grep -v '^\s*#' | grep -iv 'AllowOverride\s\+All' \
+            | grep -i 'None' || true)
+          if [[ -n "$override" ]]; then
+            critical "Data directory .htaccess has deny directive but Apache has 'AllowOverride None' — .htaccess is ignored, files exposed"
+            raw "  Fix: set AllowOverride All (or FileInfo AuthConfig Limit) for the Nextcloud directory"
+          else
+            warn "Data directory is inside web root (default layout) — .htaccess deny present and AllowOverride appears active"
+            raw "  Move outside web root for defence-in-depth"
+          fi
+        else
+          critical "Data directory .htaccess exists but contains no Deny/Require directive — user files may be directly accessible via HTTP"
+          raw "  Expected: 'Require all denied' (Apache 2.4) or 'Deny from all' (Apache 2.2)"
+        fi
       fi
     else
       info "Data directory is outside web root (good)"
