@@ -73,7 +73,8 @@ run_module() {
   subsection "Access Log Analysis"
   local log_prefix="${SCAN_APACHE_LOG_DIR}/access.log"
   local vhost_logs
-  vhost_logs=$(find "${SCAN_APACHE_LOG_DIR}" -maxdepth 1 -name '*access*' 2>/dev/null | sort)
+  # Match only base log files (*.log); search_logs handles rotations (.1, .2.gz, etc.)
+  vhost_logs=$(find "${SCAN_APACHE_LOG_DIR}" -maxdepth 1 -name '*access*.log' 2>/dev/null | sort)
 
   for log_base in "${log_prefix}" ${vhost_logs}; do
     [[ "${log_base}" == "${log_prefix}" ]] || info "Analysing vhost log: ${log_base}"
