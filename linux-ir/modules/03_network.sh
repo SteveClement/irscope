@@ -12,9 +12,10 @@ run_module() {
 
   subsection "Active Connections"
   if have_cmd ss; then
-    ss -anptu 2>/dev/null | raw_block
+    # Drop -p (process) flag — process info makes Apache/PHP-FPM lines hundreds of chars wide
+    ss -antu 2>/dev/null | raw_block
   elif have_cmd netstat; then
-    netstat -anptu 2>/dev/null | raw_block
+    netstat -antu 2>/dev/null | raw_block
   fi
 
   # Flag established connections to unusual ports
@@ -29,7 +30,11 @@ run_module() {
   fi
 
   subsection "Listening Services"
-  ss -tlnp 2>/dev/null | raw_block || netstat -tlnp 2>/dev/null | raw_block
+  # Truncate long lines — multi-process listeners (Apache) produce hundreds of chars per line
+  ss -tlnp 2>/dev/null \
+    | awk '{ if (length > 130) print substr($0,1,127) "..."; else print }' \
+    | raw_block \
+    || netstat -tlnp 2>/dev/null | raw_block
 
   # Warn if MySQL/Postgres listening on 0.0.0.0
   if ss -tlnp 2>/dev/null | grep -qE '0\.0\.0\.0:(3306|5432)'; then

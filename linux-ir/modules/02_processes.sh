@@ -39,7 +39,9 @@ run_module() {
 
   subsection "Listening Processes (ss)"
   if have_cmd ss; then
-    ss -tlnpu 2>/dev/null | raw_block
+    ss -tlnpu 2>/dev/null \
+      | awk '{ if (length > 130) print substr($0,1,127) "..."; else print }' \
+      | raw_block
   elif have_cmd netstat; then
     netstat -tlnpu 2>/dev/null | raw_block
   fi
@@ -66,7 +68,7 @@ run_module() {
   done
 
   subsection "Suspicious Process Names"
-  local suspicious_patterns='(nc |ncat |netcat |socat |msfconsole|meterpreter|reverse.?shell|bash -i|python.*pty|perl.*socket|ruby.*socket|php.*exec|/dev/tcp|/dev/udp)'
+  local suspicious_patterns='(\bnc\b|ncat |netcat |socat |msfconsole|meterpreter|reverse.?shell|bash -i|python.*pty|perl.*socket|ruby.*socket|php.*exec|/dev/tcp|/dev/udp)'
   local sus_procs
   sus_procs=$(ps aux 2>/dev/null | grep -iE "$suspicious_patterns" | grep -v grep || true)
   if [[ -n "$sus_procs" ]]; then
