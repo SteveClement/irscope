@@ -113,7 +113,7 @@ run_module() {
   # OpenSSH CVE-2024-6387
   if have_cmd sshd; then
     local sshd_ver
-    sshd_ver=$(sshd -V 2>&1 | head -1)
+    sshd_ver=$(sshd -V 2>&1 | head -1 || true)
     if echo "$sshd_ver" | grep -qE 'OpenSSH_(8\.[5-9]|9\.[0-7])p1'; then
       critical "CVE-2024-6387 (regreSSHion): sshd version in vulnerable range: ${sshd_ver}"
       raw "  Remediation: upgrade OpenSSH to >= 9.8p1"
@@ -125,7 +125,7 @@ run_module() {
   # Sudo CVE-2021-3156 (Baron Samedit)
   if have_cmd sudo; then
     local sudo_ver
-    sudo_ver=$(sudo --version 2>/dev/null | head -1 | grep -oP '[0-9]+\.[0-9]+\.[0-9p]+')
+    sudo_ver=$(sudo --version 2>/dev/null | head -1 | grep -oP '[0-9]+\.[0-9]+\.[0-9p]+' || true)
     info "Sudo version: ${sudo_ver}"
     # Vulnerable: 1.8.2 - 1.9.5p2
     if echo "$sudo_ver" | grep -qE '^1\.(8\.[2-9]|8\.[1-9][0-9]|9\.[0-4]|9\.5p[01]?)$'; then

@@ -90,7 +90,7 @@ run_module() {
     # Scanner fingerprints (from signatures file)
     if [[ -f "${SIGNATURES_DIR}/scanners.txt" ]]; then
       local scan_pattern
-      scan_pattern=$(grep -v '^#' "${SIGNATURES_DIR}/scanners.txt" | grep -v '^$' | paste -sd'|')
+      scan_pattern=$(grep -v '^#' "${SIGNATURES_DIR}/scanners.txt" | grep -v '^$' | paste -sd'|' || true)
       if [[ -n "$scan_pattern" ]]; then
         subsection "Scanner/Tool Fingerprints"
         local scanner_hits

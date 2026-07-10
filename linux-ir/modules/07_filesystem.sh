@@ -47,8 +47,11 @@ run_module() {
 
   subsection "PHP Files with Obfuscated/Encoded Content"
   local php_sus
-  php_sus=$(grep -rlE '(base64_decode\s*\(|eval\s*\(|assert\s*\(|gzinflate|str_rot13|preg_replace.*\/e|exec\s*\(|system\s*\(|passthru)' \
-    "${SCAN_WEBROOT}" 2>/dev/null | grep '\.php$' | head -30 || true)
+  # --include='*.php' avoids grepping GBs of user-uploaded data; timeout caps worst-case
+  php_sus=$(timeout 120 grep -rlE --include='*.php' \
+    --exclude-dir='data' --exclude-dir='.git' \
+    '(base64_decode\s*\(|eval\s*\(|assert\s*\(|gzinflate|str_rot13|preg_replace.*\/e|exec\s*\(|system\s*\(|passthru)' \
+    "${SCAN_WEBROOT}" 2>/dev/null | head -30 || true)
   if [[ -n "$php_sus" ]]; then
     high "PHP files with suspicious function calls (possible webshell):"
     printf '%s\n' "$php_sus" | raw_block
@@ -59,10 +62,12 @@ run_module() {
   subsection "Webshell Signature Scan"
   if [[ -f "${SIGNATURES_DIR}/webshells.txt" ]]; then
     local ws_pattern
-    ws_pattern=$(grep -v '^#' "${SIGNATURES_DIR}/webshells.txt" | grep -v '^$' | paste -sd'|')
+    ws_pattern=$(grep -v '^#' "${SIGNATURES_DIR}/webshells.txt" | grep -v '^$' | paste -sd'|' || true)
     if [[ -n "$ws_pattern" ]]; then
       local ws_hits
-      ws_hits=$(grep -rlE "$ws_pattern" "${SCAN_WEBROOT}" 2>/dev/null | head -20 || true)
+      ws_hits=$(timeout 120 grep -rlE --include='*.php' \
+        --exclude-dir='data' --exclude-dir='.git' \
+        "$ws_pattern" "${SCAN_WEBROOT}" 2>/dev/null | head -20 || true)
       if [[ -n "$ws_hits" ]]; then
         critical "Webshell signatures matched:"
         printf '%s\n' "$ws_hits" | raw_block

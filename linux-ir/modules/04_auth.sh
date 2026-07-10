@@ -43,7 +43,7 @@ run_module() {
   subsection "Groups with Elevated Privilege"
   for g in sudo wheel adm docker lxd disk; do
     local members
-    members=$(getent group "$g" 2>/dev/null | cut -d: -f4)
+    members=$(getent group "$g" 2>/dev/null | cut -d: -f4 || true)
     if [[ -n "$members" ]]; then
       info "Group '${g}' members: ${members}"
       # Docker group = effective root

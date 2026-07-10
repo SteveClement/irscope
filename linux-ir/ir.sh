@@ -114,7 +114,7 @@ for mod in "${MODULES[@]}"; do
   progress "Running module: ${mod}"
   # shellcheck source=/dev/null
   source "$mod_file"
-  run_module
+  ( run_module ) || progress "Module ${mod} exited non-zero — continuing"
 done
 
 # ── finalise ──────────────────────────────────────────────────────────────────
