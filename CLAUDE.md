@@ -44,10 +44,6 @@ Every finding goes through `lib/output.sh` helpers (`info`, `warn`, `high`, `cri
 
 Never use `echo` for findings — always use the output helpers so both sinks stay in sync.
 
-### `|| true` is load-bearing
-
-The parent script runs `set -Eeuo pipefail`. Any command in a module that exits non-zero (including `getent` for absent groups, `sshd -V`, `grep` with no match, `paste` on empty input) will kill the entire scan unless guarded with `|| true`. Add `|| true` to any assignment that could legitimately produce a non-zero exit.
-
 ### Lib files
 
 | File | Purpose |
@@ -78,8 +74,85 @@ The parent script runs `set -Eeuo pipefail`. Any command in a module that exits 
 
 `linux-ir/baselines/` holds pre-incident snapshots (listening ports, SUID files, users, packages, crontabs). Module 15 diffs the current state against these files. Module 15 also writes a fresh snapshot to `$OUTPUT_DIR/snapshot/` each run — copy that to `baselines/` to establish a clean reference. The `--baseline` flag is referenced in module 15 but not yet wired into `ir.sh`'s getopts.
 
-## Known implementation gaps (not yet fixed)
+## Recurring pitfalls
+
+### `|| true` is load-bearing
+
+The parent script runs `set -Eeuo pipefail`. Any command in a module that exits non-zero (including `getent` for absent groups on Debian, `sshd -V`, `grep` with no match, `paste` on empty input) will kill the entire scan unless guarded with `|| true`. Add `|| true` to any assignment that could legitimately produce a non-zero exit.
+
+### `printf` with format strings starting with `-`
+
+Some `printf` implementations treat a leading `-` as an option flag. Always use `printf --` when the format string starts with `-`:
+```bash
+printf -- '- item: %s\n' "$value"   # correct
+printf '- item: %s\n' "$value"      # may error on some systems
+```
+
+### `nc` substring matching
+
+The string `nc ` (netcat) appears as a substring in `rsync `, `sync `, etc. Always use `\bnc\b` in grep patterns when matching netcat specifically:
+```bash
+grep -qiE '\bnc\b'   # correct — won't match rsync
+grep -qiE 'nc '      # wrong — matches "rsync --daemon"
+```
+
+### `search_logs` takes a base prefix, not a file path
+
+`search_logs <pattern> <prefix>` in `lib/common.sh` expands the prefix to find `.log`, `.log.1`, `.log.{2..14}`, and `.log.*.gz` / `.log-*.gz` automatically. **Pass the base log name, never an individual rotated file.** Passing `/var/log/apache2/access.log.8.gz` as the prefix causes the uncompressed branch to `grep` raw binary.
+
+```bash
+search_logs '.' /var/log/apache2/access.log        # correct
+search_logs '.' /var/log/apache2/access.log.8.gz   # wrong — reads binary
+```
+
+When discovering vhost logs with `find`, filter to base names only:
+```bash
+find /var/log/apache2 -maxdepth 1 -name '*access*.log'   # correct
+find /var/log/apache2 -maxdepth 1 -name '*access*'       # wrong — finds .gz rotations too
+```
+
+### PHP/webshell grep on large web roots
+
+Never run `grep -rE` across `/var/www` without `--include='*.php'`. A Nextcloud data directory can be 1+ TB and will hang for hours scanning non-PHP files. Also exclude framework directories that legitimately use encoding functions:
+
+```bash
+timeout 120 grep -rlE --include='*.php' \
+  --exclude-dir='data' --exclude-dir='.git' \
+  --exclude-dir='apps' --exclude-dir='core' \
+  --exclude-dir='lib' --exclude-dir='3rdparty' --exclude-dir='vendor' \
+  "$pattern" "${SCAN_WEBROOT}"
+```
+
+### `ss -p` output width
+
+`ss` with the `-p` flag lists every PID for each socket. Multi-process listeners (Apache with 16 workers) produce 600+ character lines. Truncate at 130 chars for readability:
+
+```bash
+ss -tlnp 2>/dev/null | awk '{ if (length > 130) print substr($0,1,127) "..."; else print }'
+```
+
+For sections where process attribution isn't needed (active connection dumps), drop `-p` entirely.
+
+### Known-good deleted-file patterns
+
+`lsof +L1` reports all files unlinked while still open. On a typical Nextcloud/PHP-FPM/MariaDB/Collabora stack, these are always present and are not payloads:
+- `.ZendSem.*` — PHP-FPM semaphore files
+- `#NNN` (numeric only) — MariaDB anonymous tmpfiles
+- `coolwsd`, `AppRun`, `forkit` — Collabora Online
+
+Filter these before alerting:
+```bash
+lsof +L1 | grep -E '/tmp|/var/tmp|/dev/shm' \
+  | grep -vE '(\.ZendSem\.|/#[0-9]+|coolwsd|AppRun|forkit|systemd-journal)'
+```
+
+### `is_world_readable` returns true for 755 directories
+
+`is_world_readable` in `lib/common.sh` checks bit `004`. A directory at `755` passes this check because `o+r` is set — but 755 is normal and required for Apache to traverse into application directories. Only flag world-readable on regular files (`-type f`), not directories.
+
+## Known implementation gaps
 
 - `IR_VERBOSE` is exported but `lib/output.sh` never checks it — `-q`/`-v` flags are currently no-ops.
 - `--baseline` flag mentioned in module 15 help text has no getopts entry in `ir.sh`.
 - Module 09 (`09_nextcloud.sh`) runs `occ` which may write PHP session files — conflicts with the "read-only" guarantee in the header.
+- Module 07 (`07_filesystem.sh`) exposed-file check uses `-type f` but the world-readable test is also called on results from `sensitive-files.txt` which may return directories; 755 directories produce false-positive CRITICAL alerts.
