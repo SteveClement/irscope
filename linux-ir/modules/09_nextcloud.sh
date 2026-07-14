@@ -154,16 +154,19 @@ run_module() {
       else
         # Check the .htaccess actually contains a deny directive
         if grep -qiE '(Require\s+all\s+denied|Deny\s+from\s+all)' "$htaccess" 2>/dev/null; then
-          # Check Apache respects .htaccess (AllowOverride must not be None)
-          local override
-          override=$(grep -rh 'AllowOverride' /etc/apache2/ 2>/dev/null \
-            | grep -v '^\s*#' | grep -iv 'AllowOverride\s\+All' \
-            | grep -i 'None' || true)
-          if [[ -n "$override" ]]; then
-            critical "Data directory .htaccess has deny directive but Apache has 'AllowOverride None' — .htaccess is ignored, files exposed"
-            raw "  Fix: set AllowOverride All (or FileInfo AuthConfig Limit) for the Nextcloud directory"
+          # Check Apache vhost configs grant AllowOverride so .htaccess takes effect.
+          # Search only sites-enabled/ — apache2.conf always has AllowOverride None
+          # for <Directory /> as a global default, which vhost configs override.
+          local permissive_override
+          permissive_override=$(grep -rh 'AllowOverride' /etc/apache2/sites-enabled/ 2>/dev/null \
+            | grep -v '^\s*#' \
+            | grep -iE 'AllowOverride\s+(All|FileInfo|AuthConfig|Limit)' \
+            || true)
+          if [[ -z "$permissive_override" ]]; then
+            critical "Data directory .htaccess has deny directive but no AllowOverride in vhost configs — .htaccess is ignored, files exposed"
+            raw "  Fix: add 'AllowOverride All' (or FileInfo AuthConfig) to the Nextcloud <Directory> block in sites-enabled/"
           else
-            warn "Data directory is inside web root (default layout) — .htaccess deny present and AllowOverride appears active"
+            warn "Data directory is inside web root (default layout) — .htaccess deny present and AllowOverride active in vhost"
             raw "  Move outside web root for defence-in-depth"
           fi
         else
