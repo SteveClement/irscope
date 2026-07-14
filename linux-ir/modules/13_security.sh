@@ -46,9 +46,9 @@ run_module() {
   if have_cmd auditctl; then
     auditctl -l 2>/dev/null | raw_block || true
     if have_cmd aureport; then
-      aureport --summary 2>/dev/null | head -30 | raw_block || true
+      timeout 30 aureport --summary 2>/dev/null | head -30 | raw_block || true
       # Recent authentication failures
-      aureport --auth --failed 2>/dev/null | head -20 | raw_block || true
+      timeout 30 aureport --auth --failed 2>/dev/null | head -20 | raw_block || true
     fi
   else
     warn "auditd not active — security event logging limited to syslog"
@@ -85,7 +85,7 @@ run_module() {
             ;;
           ssh-rsa)
             local bits
-            bits=$(ssh-keygen -lf <(echo "$line") 2>/dev/null | awk '{print $1}' || echo 0)
+            bits=$(timeout 5 ssh-keygen -lf <(echo "$line") 2>/dev/null | awk '{print $1}' || echo 0)
             (( bits > 0 && bits < 2048 )) && warn "Weak RSA key (${bits} bits) in ${kf}"
             ;;
         esac
