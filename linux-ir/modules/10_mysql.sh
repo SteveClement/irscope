@@ -52,6 +52,10 @@ run_module() {
         critical "bind-address=${bind} — MySQL accepts connections from all interfaces"
       fi
     fi
+    # Flag skip-grant-tables — disables all authentication
+    if grep -qiE '^\s*skip.grant.tables' "$conf" 2>/dev/null; then
+      critical "skip-grant-tables set in ${conf} — all authentication bypassed"
+    fi
   done
 
   subsection "MySQL Users and Privileges"
@@ -59,10 +63,20 @@ run_module() {
   local can_connect=0
   if [[ -n "$mysql_bin" ]]; then
     if "$mysql_bin" -u root --connect-timeout=3 -e '' &>/dev/null; then
-      critical "MySQL root login without password succeeds — immediate remediation required"
       can_connect=1
+      # Distinguish socket authentication from a true empty password
+      local root_plugin
+      root_plugin=$("$mysql_bin" -u root --connect-timeout=3 --skip-column-names -e \
+        "SELECT plugin FROM mysql.user WHERE user='root' LIMIT 1;" 2>/dev/null || echo "")
+      if [[ "$root_plugin" == *socket* ]]; then
+        warn "MySQL root uses socket authentication (unix_socket/auth_socket) — passwordless login works only as OS root"
+        raw "  This is controlled access but means any process running as root can read the database."
+        raw "  Consider adding a password as defence-in-depth: ALTER USER 'root'@'localhost' IDENTIFIED BY '...';"
+      else
+        critical "MySQL root login without password succeeds (plugin: ${root_plugin:-unknown}) — immediate remediation required"
+      fi
     elif "$mysql_bin" -u root -p'' --connect-timeout=3 -e '' &>/dev/null; then
-      critical "MySQL root login with empty password succeeds"
+      critical "MySQL root login with empty string password succeeds"
       can_connect=1
     fi
 
