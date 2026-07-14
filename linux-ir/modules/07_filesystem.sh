@@ -119,12 +119,22 @@ run_module() {
   subsection "Immutable Files"
   if have_cmd lsattr; then
     local immutable
-    immutable=$(lsattr -R /etc /var/www /tmp 2>/dev/null | grep '^----i' | head -20 || true)
+    # ^[A-Za-z-]{4}i matches immutable (bit 4) regardless of other flag bits.
+    # Avoid lsattr -R on web root — Nextcloud data dirs have millions of files.
+    # Instead use find with maxdepth and exclude known data-heavy paths.
+    immutable=$(
+      { timeout 60 lsattr -R /etc /tmp 2>/dev/null; \
+        find "${SCAN_WEBROOT}" -maxdepth 4 \
+          -not -path '*/data/*' -not -path '*/.git/*' \
+          -type f 2>/dev/null \
+          | xargs -r timeout 30 lsattr 2>/dev/null; \
+      } | grep -E '^[A-Za-z-]{4}i' | head -20 || true
+    )
     if [[ -n "$immutable" ]]; then
       warn "Immutable files (chattr +i — may prevent remediation):"
       printf '%s\n' "$immutable" | raw_block
     else
-      info "No immutable files detected in /etc, /var/www, /tmp"
+      info "No immutable files detected in /etc, /tmp, or web root"
     fi
   fi
 }
