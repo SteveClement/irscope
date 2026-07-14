@@ -46,9 +46,9 @@ run_module() {
   if have_cmd auditctl; then
     auditctl -l 2>/dev/null | raw_block || true
     if have_cmd aureport; then
-      timeout 30 aureport --summary 2>/dev/null | head -30 | raw_block || true
-      # Recent authentication failures
-      timeout 30 aureport --auth --failed 2>/dev/null | head -20 | raw_block || true
+      timeout 30 aureport -n --summary 2>/dev/null | head -30 | raw_block || true
+      # Recent authentication failures — -n disables hostname resolution (prevents DNS hang)
+      timeout 30 aureport -n --auth --failed 2>/dev/null | head -20 | raw_block || true
     fi
   else
     warn "auditd not active — security event logging limited to syslog"
